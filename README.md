@@ -1,116 +1,182 @@
 # ForexFactory Calendar REST API
 
-A clean REST API for ForexFactory economic calendar data. Returns real-time and historical news events in **JSON** or **CSV**.
+A high-performance, developer-friendly REST API for ForexFactory economic calendar data. Returns real-time and historical economic news events in clean **JSON** or **CSV** with in-memory caching and sub-millisecond query responses.
 
 ---
 
-## 🚀 Ultra-Simple GET Requests
+## ⚡ Quick Reference
 
-You can query any date directly in the URL path:
+### Direct Endpoints
 
-| GET Request | Output Format | Description |
-| :--- | :--- | :--- |
-| `GET /api/v1/2014-10-14` | JSON | Fetch events for specific date |
-| `GET /api/v1/2014-10-14.csv` | CSV | Direct CSV download for specific date |
-| `GET /api/v1/today` | JSON | Today's economic calendar events |
-| `GET /api/v1/high-impact` | JSON | High-impact market releases |
+| Method | Endpoint | Description | Format |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/today` | Today's economic calendar events | JSON |
+| `GET` | `/api/v1/tomorrow` | Tomorrow's scheduled releases | JSON |
+| `GET` | `/api/v1/yesterday` | Yesterday's historical releases | JSON |
+| `GET` | `/api/v1/high-impact` | High-impact (red folder) events for today | JSON |
+| `GET` | `/api/v1/calendar/:date` | Events for any specific date (`YYYY-MM-DD`) | JSON |
+| `GET` | `/api/v1/calendar/:date.csv` | Direct CSV export for any date | CSV |
+| `GET` | `/api/v1/currencies` | List of all monitored currencies & major pairs | JSON |
+| `GET` | `/api/v1/metrics` | Cache hit ratio, uptime & server telemetry | JSON |
+| `GET` | `/api/v1/spec` | OpenAPI 3.0 specification | JSON |
+| `GET` | `/api/health` | Service health status check | JSON |
 
 ---
 
-## ⚙️ Advanced Query Parameters
+## 📖 API Documentation
 
-Use `/api/v1/calendar` for filtering and customization:
+### `GET /api/v1/calendar`
 
-```http
-GET /api/v1/calendar?date=2014-10-14&currency=USD,EUR&impact=High&format=json
-```
+The primary flexible endpoint supporting filtering, searching, sorting, pagination, and format selection.
 
-| Parameter | Type | Default | Description | Examples |
+#### Query Parameters
+
+| Parameter | Type | Default | Description | Example |
 | :--- | :--- | :--- | :--- | :--- |
-| `date` | `string` | `today` | Date in `YYYY-MM-DD` or keyword | `2014-10-14`, `today`, `yesterday` |
-| `currency` | `string` | All | Comma-separated currencies | `USD`, `EUR,GBP` |
-| `impact` | `string` | All | Comma-separated impact levels | `High`, `Medium,High` |
-| `format` | `string` | `json` | Output format (`json` or `csv`) | `json`, `csv` |
+| `date` | `string` | `today` | Date in `YYYY-MM-DD` format or keyword (`today`, `yesterday`, `tomorrow`) | `?date=2024-05-15` |
+| `currency` | `string` | *all* | Comma-separated currency codes | `?currency=USD,EUR,GBP` |
+| `impact` | `string` | *all* | Comma-separated impact levels (`High`, `Medium`, `Low`, `Non-Economic`) | `?impact=High` |
+| `search` | `string` | — | Keyword search across event title, currency, or impact | `?search=CPI` |
+| `hasActual` | `boolean` | `false` | When `true`, returns only events where actual data has been released | `?hasActual=true` |
+| `sort` | `string` | `time` | Field to sort by: `time`, `impact`, `currency`, `actual` | `?sort=impact` |
+| `order` | `string` | `asc` | Sort order: `asc` or `desc` | `?order=desc` |
+| `limit` | `number` | — | Maximum number of records to return | `?limit=10` |
+| `offset` | `number` | `0` | Number of records to skip for pagination | `?offset=20` |
+| `format` | `string` | `json` | Response payload format: `json` or `csv` | `?format=csv` |
 
 ---
 
-## ⚡ Quick Examples
+## 📊 Output Formats
 
-> Note: Replace `[BASE_URL]` with your app domain (e.g. `http://localhost:3000` locally).
-
-### 1. Direct JSON Query
-```bash
-curl "[BASE_URL]/api/v1/2014-10-14"
-```
-
-### 2. Direct CSV Export
-```bash
-curl "[BASE_URL]/api/v1/2014-10-14.csv" -o news.csv
-```
-
-### 3. Filtered High-Impact USD Releases
-```bash
-curl "[BASE_URL]/api/v1/calendar?date=2014-10-14&currency=USD&impact=High"
-```
-
-### 4. Google Sheets Formula
-```excel
-=IMPORTDATA("[BASE_URL]/api/v1/2014-10-14.csv")
-```
-
----
-
-## 📋 JSON Response Format
+### 1. JSON Response
 
 ```json
 {
-  "url": "https://www.forexfactory.com/calendar?day=oct14.2014",
-  "dateQueried": "2014-10-14",
-  "totalEventsFound": 18,
+  "url": "https://www.forexfactory.com/calendar?day=may15.2024",
+  "dateQueried": "2024-05-15",
+  "timestamp": "2026-08-16T13:45:00.000Z",
+  "totalEventsFound": 29,
+  "returnedEventsCount": 1,
   "events": [
     {
-      "id": "52282",
-      "date": "Tue Oct 14",
-      "time": "2:45am",
-      "currency": "EUR",
-      "impact": "Low",
-      "impactTitle": "Low Impact Expected",
-      "title": "French Final CPI m/m",
-      "actual": "-0.4%",
-      "forecast": "-0.3%",
+      "id": "136928",
+      "date": "2024-05-15",
+      "time": "8:30am",
+      "currency": "USD",
+      "impact": "High",
+      "impactTitle": "High Impact Expected",
+      "impactClass": "impact-red",
+      "impactScore": 3,
+      "title": "CPI m/m",
+      "actual": "0.3%",
+      "forecast": "0.4%",
       "previous": "0.4%",
-      "actualStatus": "worse"
+      "previousRevised": false,
+      "actualStatus": "better",
+      "rawRowData": ["2024-05-15", "8:30am", "USD", "High", "CPI m/m", "0.3%", "0.4%", "0.4%"]
     }
   ],
+  "rawHtmlLength": 185830,
+  "selectorUsed": "tr.calendar__row",
+  "scraperEngine": "Jina HTML Reader",
+  "notes": "Scraped via Jina HTML Reader. Attribute extraction active.",
   "latencyMs": 0,
   "cached": true
 }
 ```
 
----
+### 2. CSV Export
 
-## 💻 Code Snippets
-
-### Node.js / JavaScript
-```javascript
-const res = await fetch("/api/v1/2014-10-14");
-const data = await res.json();
-console.log(data.events);
+```csv
+Date,Time,Currency,Impact,ImpactScore,ImpactTitle,Title,Actual,Forecast,Previous,ActualStatus,Revised
+"2024-05-15","8:30am","USD","High","3","High Impact Expected","CPI m/m","0.3%","0.4%","0.4%","better","false"
+"2024-05-15","8:30am","USD","High","3","High Impact Expected","Core CPI m/m","0.3%","0.3%","0.4%","neutral","false"
+"2024-05-15","8:30am","USD","High","3","High Impact Expected","Retail Sales m/m","0.0%","0.4%","0.7%","worse","false"
 ```
 
-### Python
+---
+
+## 📈 Google Sheets & Excel Integration
+
+Import live ForexFactory data directly into spreadsheet models with automatic refreshes:
+
+```excel
+=IMPORTDATA("https://your-domain.com/api/v1/calendar/today.csv")
+```
+
+For a specific date:
+```excel
+=IMPORTDATA("https://your-domain.com/api/v1/calendar/2024-05-15.csv")
+```
+
+---
+
+## 💻 Code Examples
+
+### cURL
+```bash
+# Get high-impact USD events in JSON
+curl "https://your-domain.com/api/v1/calendar?date=today&currency=USD&impact=High"
+
+# Download CSV file directly
+curl "https://your-domain.com/api/v1/calendar/2024-05-15.csv" -o calendar_2024-05-15.csv
+```
+
+### JavaScript / TypeScript (Fetch)
+```typescript
+async function fetchHighImpactEvents(date: string = "today") {
+  const response = await fetch(
+    `https://your-domain.com/api/v1/calendar?date=${date}&impact=High&currency=USD,EUR,GBP`
+  );
+  const data = await response.json();
+  return data.events;
+}
+```
+
+### Python (Requests)
 ```python
 import requests
 
-res = requests.get("https://your-domain.com/api/v1/2014-10-14")
-print(res.json()["events"])
+def get_economic_calendar(date="today", currencies="USD,EUR"):
+    url = f"https://your-domain.com/api/v1/calendar"
+    params = {
+        "date": date,
+        "currency": currencies,
+        "impact": "High"
+    }
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    return response.json()["events"]
+
+events = get_economic_calendar()
+for event in events:
+    print(f"[{event['time']}] {event['currency']} - {event['title']} (Actual: {event['actual']}, Forecast: {event['forecast']})")
 ```
+
+---
+
+## ⚙️ Architecture & Performance
+
+- **Multi-Tier Scraper Redundancy**:
+  1. **In-Memory TTL Cache**: Sub-millisecond (<1ms) response for repeat queries.
+  2. **Jina HTML Engine**: High-speed, rate-limit immune DOM reader.
+  3. **Markdown Parser**: Structured Markdown table fallback.
+  4. **Direct DOM Parser**: Direct upstream HTML fallback.
+  5. **FairEconomy Stream**: Real-time CDN fallback.
+- **Cache Policy**: Historical dates (`date < today`) are cached for 24 hours. Live/future dates are cached for 3 minutes.
+- **CORS Enabled**: Out-of-the-box support for browser clients and cross-origin fetch requests (`Access-Control-Allow-Origin: *`).
 
 ---
 
 ## 🛠️ Local Development
 
 ```bash
+# Install dependencies
 npm install
+
+# Start development server on port 3000
 npm run dev
+
+# Run production build
+npm run build
 ```
