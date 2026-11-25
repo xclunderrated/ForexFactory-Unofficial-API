@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forex calendar</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Forex calendar</h1>
+      <p class="sub">Unofficial ForexFactory API.</p>
+      <nav class="tabs">
+        <a href="#calendar" data-view="calendar">calendar</a>
+        <a href="#api" data-view="api">api</a>
+      </nav>
+    </header>
+
+    <section id="view-calendar">
+      <div class="toolbar">
+        <div class="group">
+          <button id="prev" type="button" title="Previous day" aria-label="Previous day">&larr;</button>
+          <input id="date" type="date" aria-label="Date">
+          <button id="next" type="button" title="Next day" aria-label="Next day">&rarr;</button>
+          <button id="today" type="button">today</button>
+          <a id="csv" class="linkish" href="#" title="Download this day as CSV">csv</a>
+          <button id="reload" class="linkish" type="button">reload</button>
+        </div>
+        <div class="group right">
+          <input id="q" type="search" placeholder="filter events" aria-label="Filter events">
+          <label class="check"><input id="high" type="checkbox"> high impact only</label>
+        </div>
+      </div>
+
+      <p id="status" class="status">loading&hellip;</p>
+
+      <div class="tablewrap">
+        <table id="cal">
+          <thead>
+            <tr>
+              <th>time</th>
+              <th>ccy</th>
+              <th>impact</th>
+              <th>event</th>
+              <th class="num">actual</th>
+              <th class="num">forecast</th>
+              <th class="num">previous</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <p id="empty" class="empty" hidden>Nothing scheduled for this day.</p>
+    </section>
+
+    <section id="view-api" class="doc" hidden>
+      <p>This is a small, unofficial API that reads the ForexFactory economic calendar and returns it
+        as JSON or CSV. Every endpoint is a plain <code>GET</code>, so you can open any of them in a browser.</p>
+
+      <h2>Base url</h2>
+      <p><code class="base">http://localhost:3000</code></p>
+
+      <h2>Endpoints</h2>
+      <dl class="params endpoints">
+        <dt><a href="/api/v1/today" target="_blank" rel="noreferrer"><code>/api/v1/today</code></a></dt>
+        <dd>today's releases</dd>
+
+        <dt><a href="/api/v1/yesterday" target="_blank" rel="noreferrer"><code>/api/v1/yesterday</code></a></dt>
+        <dd>yesterday's releases</dd>
+
+        <dt><a href="/api/v1/tomorrow" target="_blank" rel="noreferrer"><code>/api/v1/tomorrow</code></a></dt>
+        <dd>tomorrow's schedule</dd>
+
+        <dt><a href="/api/v1/high-impact" target="_blank" rel="noreferrer"><code>/api/v1/high-impact</code></a></dt>
+        <dd>only red-folder events</dd>
+
+        <dt><a href="/api/v1/calendar" target="_blank" rel="noreferrer"><code>/api/v1/calendar</code></a></dt>
+        <dd>any date, with the filters below</dd>
+
+        <dt><a href="/api/v1/calendar/2024-05-15.csv" target="_blank" rel="noreferrer"><code>/api/v1/calendar/2024-05-15.csv</code></a></dt>
+        <dd>one day as a CSV file</dd>
+
+        <dt><a href="/api/v1/currencies" target="_blank" rel="noreferrer"><code>/api/v1/currencies</code></a></dt>
+        <dd>currencies seen in today's data</dd>
+
+        <dt><a href="/api/health" target="_blank" rel="noreferrer"><code>/api/health</code></a></dt>
+        <dd>a quick "is it alive" check</dd>
+      </dl>
+
+      <h2>Filters</h2>
+      <p>Add any of these to <code>/api/v1/calendar</code> as query parameters. You can combine them.</p>
+      <dl class="params">
+        <dt>date</dt>
+        <dd><code>today</code>, <code>yesterday</code>, <code>tomorrow</code>, or <code>2024-05-15</code></dd>
+
+        <dt>currency</dt>
+        <dd>one or more codes, separated by commas — <code>USD,EUR,GBP</code></dd>
+
+        <dt>impact</dt>
+        <dd><code>High</code>, <code>Medium</code>, <code>Low</code>, <code>Non-Economic</code></dd>
+
+        <dt>search</dt>
+        <dd>a word from the event title — <code>CPI</code></dd>
+
+        <dt>hasActual</dt>
+        <dd><code>true</code> returns only events that already have a released number</dd>
+
+        <dt>limit</dt>
+        <dd>maximum number of events to return — <code>10</code></dd>
+
+        <dt>format</dt>
+        <dd><code>json</code> (default) or <code>csv</code></dd>
+      </dl>
+
+      <h2>Examples</h2>
+
+      <p>High-impact USD events today, from a terminal:</p>
+      <pre><code>curl "<span class="base">http://localhost:3000</span>/api/v1/calendar?date=today&amp;currency=USD&amp;impact=High"</code></pre>
+
+      <p>In JavaScript:</p>
+      <pre><code>const res = await fetch("<span class="base">http://localhost:3000</span>/api/v1/calendar?date=today&amp;impact=High");
+const data = await res.json();
+
+for (const event of data.events) {
+  console.log(event.time, event.currency, event.title, event.actual);
+}</code></pre>
+
+      <p>In Python:</p>
+      <pre><code>import requests
+
+res = requests.get("<span class="base">http://localhost:3000</span>/api/v1/calendar", params={
+    "date": "today",
+    "currency": "USD,EUR",
+    "impact": "High",
+})
+
+for event in res.json()["events"]:
+    print(event["time"], event["currency"], event["title"])</code></pre>
+
+      <p>In Google Sheets:</p>
+      <pre><code>=IMPORTDATA("<span class="base">http://localhost:3000</span>/api/v1/calendar/today.csv")</code></pre>
+
+      <h2>What comes back</h2>
+      <pre><code>{
+  "dateQueried": "2024-05-15",
+  "totalEventsFound": 29,
+  "returnedEventsCount": 2,
+  "events": [
+    {
+      "time": "8:30am",
+      "currency": "USD",
+      "impact": "High",
+      "title": "CPI m/m",
+      "actual": "0.3%",
+      "forecast": "0.4%",
+      "previous": "0.4%"
+    }
+  ]
+}</code></pre>
+
+      <h2>Good to know</h2>
+      <ul>
+        <li>Repeated dates are cached: 3 minutes for today and future dates, 24 hours for past dates.</li>
+        <li>Times are exactly as published by ForexFactory. The API does not convert timezones.</li>
+        <li>This is unofficial and unaffiliated with ForexFactory. Keep request rates sensible.</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>Data scraped from <a href="https://www.forexfactory.com/calendar">forexfactory.com</a>.
+        Unofficial and unaffiliated. <a href="/api/health">api status</a>.</p>
+    </footer>
+  </div>
+
+  <noscript>This page needs JavaScript to load the calendar.</noscript>
+  <script src="/app.js"></script>
+</body>
+</html>

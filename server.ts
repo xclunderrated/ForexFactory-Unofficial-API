@@ -1,8 +1,51 @@
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import * as cheerio from "cheerio";
-import { ScrapedEvent, ImpactLevel, ScrapeResult, ApiMetrics } from "./src/types.js";
+
+type ImpactLevel = "High" | "Medium" | "Low" | "Non-Economic" | "Unknown";
+
+interface ScrapedEvent {
+  id: string;
+  date: string;
+  time: string;
+  currency: string;
+  impact: ImpactLevel;
+  impactTitle: string;
+  impactClass: string;
+  title: string;
+  detailId?: string;
+  actual: string;
+  forecast: string;
+  previous: string;
+  previousRevised?: boolean;
+  actualStatus?: "better" | "worse" | "neutral";
+  rawRowData?: string[];
+  impactScore?: number;
+}
+
+interface ScrapeResult {
+  url: string;
+  dateQueried: string;
+  timestamp: string;
+  totalEventsFound: number;
+  events: ScrapedEvent[];
+  rawHtmlLength?: number;
+  selectorUsed?: string;
+  scraperEngine?: string;
+  error?: string;
+  notes?: string;
+  latencyMs?: number;
+  cached?: boolean;
+}
+
+interface ApiMetrics {
+  totalRequests: number;
+  cacheHits: number;
+  cacheMisses: number;
+  hitRatio: number;
+  cachedDatesCount: number;
+  uptimeSeconds: number;
+}
 
 const app = express();
 const PORT = 3000;
@@ -27,7 +70,7 @@ let totalApiRequests = 0;
 let totalCacheHits = 0;
 let totalCacheMisses = 0;
 
-// High-Performance In-Memory Cache with TTL
+// In-memory cache with TTL
 interface CacheEntry {
   data: ScrapeResult;
   expiresAt: number;
@@ -188,7 +231,7 @@ function parseMarkdownTable(md: string, targetDate: string): ScrapedEvent[] {
 }
 
 /**
- * Core Scraper Engine: High-speed, multi-tier scraping with sub-millisecond memory caching.
+ * Scrapes one day, trying a few sources in order and keeping the first usable response.
  */
 async function scrapeForexFactory(dateStr: string): Promise<ScrapeResult> {
   const startTime = Date.now();
@@ -196,7 +239,7 @@ async function scrapeForexFactory(dateStr: string): Promise<ScrapeResult> {
   const targetUrl = `https://www.forexfactory.com/calendar?day=${dayParam}`;
   const jinaUrl = `https://r.jina.ai/${targetUrl}`;
 
-  // 1. In-Memory Cache Check (<1ms response)
+  // 1. Cache check
   const cachedEntry = scrapeCache.get(formattedDate);
   if (cachedEntry && cachedEntry.data.totalEventsFound > 0 && Date.now() < cachedEntry.expiresAt) {
     totalCacheHits++;
@@ -225,7 +268,7 @@ async function scrapeForexFactory(dateStr: string): Promise<ScrapeResult> {
     }
   };
 
-  // Strategy 1: High-speed Jina HTML Reader Proxy
+  // Strategy 1: Jina HTML reader
   try {
     const res = await fetchWithTimeout(jinaUrl, {
       headers: { "X-Return-Format": "html" },
@@ -334,7 +377,7 @@ async function scrapeForexFactory(dateStr: string): Promise<ScrapeResult> {
               rawHtmlLength: JSON.stringify(feData).length,
               selectorUsed: "JSON Feed",
               scraperEngine: "FairEconomy CDN Data Stream",
-              notes: "Retrieved via FairEconomy real-time economic data stream.",
+              notes: "Retrieved from the FairEconomy weekly JSON feed.",
               latencyMs: elapsed,
               cached: false,
             };
@@ -490,7 +533,7 @@ async function scrapeForexFactory(dateStr: string): Promise<ScrapeResult> {
     rawHtmlLength: html.length,
     selectorUsed: "tr.calendar__row",
     scraperEngine: scraperEngine || "DOM Parser Engine",
-    notes: `Scraped via ${scraperEngine || "Engine"}. Attribute extraction active.`,
+    notes: `Scraped via ${scraperEngine || "Engine"}.`,
     latencyMs: finalLatency,
     cached: false,
   };
@@ -691,7 +734,7 @@ app.get("/api/v1/spec", (_req: Request, res: Response) => {
     info: {
       title: "Unofficial ForexFactory Calendar API",
       version: "1.2.0",
-      description: "Ultra-fast JSON and CSV REST API for ForexFactory economic calendar news events.",
+      description: "Unofficial JSON and CSV API for ForexFactory economic calendar data.",
     },
     servers: [{ url: "/api/v1", description: "API Version 1" }],
     paths: {
@@ -765,24 +808,19 @@ app.get("/api/high-impact", (req: Request, res: Response) => {
   return handleCalendarRequest(req, res);
 });
 
-async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (_req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
+// Static front end: one hand-written HTML page, no build step.
+const publicDir = path.join(process.cwd(), "public");
+app.use(express.static(publicDir));
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Server] ForexFactory API server running at http://0.0.0.0:${PORT}`);
-  });
-}
+// Unknown API paths should answer as an API, not with the HTML page.
+app.use("/api", (_req: Request, res: Response) => {
+  res.status(404).json({ error: "Not found" });
+});
 
-startServer();
+app.get("*", (_req: Request, res: Response) => {
+  res.sendFile(path.join(publicDir, "index.html"));
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`[Server] ForexFactory API server running at http://0.0.0.0:${PORT}`);
+});

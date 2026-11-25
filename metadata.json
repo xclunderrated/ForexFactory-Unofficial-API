@@ -1,5 +1,0 @@
-{
-  "name": "ForexFactory Smart Scraper",
-  "description": "Unofficial ForexFactory REST API providing real-time economic calendar news data with JSON and CSV endpoints.",
-  "requestFramePermissions": []
-}
